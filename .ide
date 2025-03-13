@@ -1,0 +1,122 @@
+//auto_blinds
+//Author: Caleb Leonard
+//Date: 03/02/2025
+
+//This is the program to control window blinds using a stepper motor and IR sensor.
+//It utilized the hardware from the elegoo kit.
+//You will need to adjust the math on the motor angle if you use a gear box to achieve the correct angle
+
+//Values used to track motor angle
+int turnAngle;
+int CurrentAngle;
+int ErrAngle;
+
+//Stepper motor library included
+#include <Stepper.h>
+int stepsPerRevolution=2048;
+Stepper myStepper(stepsPerRevolution, 8,10,9,11);
+int motSpeed=10;
+
+//IR sensor library included
+#include <IRremote.hpp>
+#define IRpin 6
+
+
+void setup() {
+  // put your setup code here, to run once:
+Serial.begin(9600);
+myStepper.setSpeed(motSpeed);
+IrReceiver.begin(IRpin, ENABLE_LED_FEEDBACK);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+//Program starts by displaying the current angle in degrees for developing to ensure it works properly
+Serial.print(CurrentAngle);
+Serial.println("Degrees");
+//Get data from IR receiver
+if(IrReceiver.decode()){
+  Serial.println(IrReceiver.decodedIRData.decodedRawData,HEX);
+  IrReceiver.resume();
+  //Function coded to button 0 on the remote. it checks the current angle to determine
+  //how far to turn the motor to reach an angle of 0 degrees
+  if (IrReceiver.decodedIRData.decodedRawData==0xE916FF00){
+    Serial.println("You pressed Zero");
+    if(CurrentAngle>0){
+      ErrAngle=CurrentAngle;
+      CurrentAngle=CurrentAngle-ErrAngle;
+      turnAngle=ErrAngle/10;
+      myStepper.step(-stepsPerRevolution/36*turnAngle);
+    }
+  }
+  //Function coded to button 1 on the remote. it checks the current angle to determine
+  //how far to turn the motor and in which direction to reach an angle of 90 degrees
+  if (IrReceiver.decodedIRData.decodedRawData==0xF30CFF00){
+    Serial.println("You pressed One");
+    if(CurrentAngle>90){
+      ErrAngle=CurrentAngle-90;
+      CurrentAngle=CurrentAngle-ErrAngle;
+      turnAngle=ErrAngle/10;
+      myStepper.step(-stepsPerRevolution/36*turnAngle);
+    }
+    if(CurrentAngle<90){
+      ErrAngle=90-CurrentAngle;
+      CurrentAngle=ErrAngle+CurrentAngle;
+      turnAngle=ErrAngle/10;
+      myStepper.step(stepsPerRevolution/36*turnAngle);
+    }
+  }
+  //Function coded to button 2. This value is not tracked and is meant to help
+  //zero in the blinds so you don't over extend them
+  if (IrReceiver.decodedIRData.decodedRawData==0xE718FF00){
+    Serial.println("You pressed Two");
+    myStepper.step(-stepsPerRevolution/4);
+  }
+  //Function coded to the up arrow to allow user to open the blinds by 10 degrees
+  if (IrReceiver.decodedIRData.decodedRawData==0xF609FF00){
+    Serial.println("You pressed Up");
+    //Checks the current angle of the blinds to determine if you can open them further. 
+    //It will not allow the motor to turn past 180 degrees
+    if(CurrentAngle>=180){
+      CurrentAngle=CurrentAngle+10;
+      CurrentAngle=180;
+    }
+    if(CurrentAngle<180){
+      myStepper.step(stepsPerRevolution/36);
+      CurrentAngle=CurrentAngle+10;
+    }
+  }
+  //Function coded to the down arrow to allow user to close the blinds by 10 degrees
+   if (IrReceiver.decodedIRData.decodedRawData==0xF807FF00){
+    Serial.println("You pressed Down");
+    //Checks the current angle of the blinds to determine if you can close them further. 
+    //It will not allow the motor to turn past 0 degrees
+    if(CurrentAngle<0){
+      CurrentAngle=CurrentAngle-10;
+      CurrentAngle=0;
+    }
+    if(CurrentAngle>0){
+      myStepper.step(-stepsPerRevolution/36);
+      CurrentAngle=CurrentAngle-10;
+    }
+  }
+  //Function coded to volume up that opens blinds by 5 degrees.
+  //This function is meant to zero the blinds as to not over extend them and does not keep track of angle
+  if (IrReceiver.decodedIRData.decodedRawData==0xB946FF00){
+    Serial.println("You pressed VolUp");
+    myStepper.step(stepsPerRevolution/72);
+  }
+  //Function coded to volume up that closes blinds by 5 degrees.
+  //This function is meant to zero the blinds as to not over extend them and does not keep track of angle
+  if (IrReceiver.decodedIRData.decodedRawData==0xEA15FF00){
+    Serial.println("You pressed VolDown");
+    myStepper.step(-stepsPerRevolution/72);
+  }
+  //Function coded to button 2. This value is not tracked and is meant to help
+  //zero in the blinds so you don't over extend them
+  if (IrReceiver.decodedIRData.decodedRawData==0xA15EFF00){
+    Serial.println("You pressed Three");
+    myStepper.step(-stepsPerRevolution/36);
+  }
+}
+}
